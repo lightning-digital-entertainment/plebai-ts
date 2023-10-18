@@ -7,18 +7,17 @@ import {
   getPublicKey,
   getSignature,
 } from 'nostr-tools';
-import { getPublicKeyFromLocalstorage } from './utils/keys';
+import { getPublicKeyFromLocalstorage } from './keys.js';
 import {
   encryptMessage,
   encryptMessageFromLocalstorage,
-} from './utils/messages';
+} from './messages.js';
 
 declare global {
   interface Window {
     nostr: {
       signEvent: (unsignedEvent: EventTemplate) => Promise<Event>;
       getPublicKey: () => Promise<string>;
-      // async window.nostr.nip04.encrypt
       encrypt: (pk: PublicKey, message: string) => Promise<string>;
       decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
     };
@@ -66,6 +65,7 @@ class Conversation {
       if (configObject.secretKeyMethod) {
         this.secretKeyMethod = configObject.secretKeyMethod;
         if (configObject.secretKeyMethod === 'throwaway') {
+          console.log('works')
           this.createAndSaveThrowawayKey();
         }
       } else {
@@ -78,6 +78,7 @@ class Conversation {
     const key = generatePrivateKey();
     this.publicKey = getPublicKey(key);
     this.secretKey = key;
+    console.log(this.secretKey)
   }
 
   private async encryptMessage(
@@ -99,7 +100,8 @@ class Conversation {
           'Throwaway key was selected as method, but none was set on class construction'
         );
       }
-      encryptMessage(receiverPublicKey, this.secretKey, message);
+      return encryptMessage(receiverPublicKey, this.secretKey, message);
+      
     }
     throw new Error('No valid private key Method was selected');
   }
@@ -161,7 +163,8 @@ class Conversation {
 
   async sendPrompt(prompt: string) {
     const event = await this.createKind4(prompt);
-    this.relayPool.publish(this.relays, event);
+    const pubs = this.relayPool.publish(this.relays, event);
+    return Promise.all(pubs)
   }
 }
 
