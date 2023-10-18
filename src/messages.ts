@@ -20,11 +20,11 @@ export async function createUnsignedKind4(
 }
 
 export async function decryptMessage(
-  receiverPublicKey: string,
-  senderSecretKey: string,
+  publicKey: string,
+  secretKey: string,
   encryptedMessage: string,
 ): Promise<string> {
-  return nip04.decrypt(senderSecretKey, receiverPublicKey, encryptedMessage);
+  return nip04.decrypt(secretKey, publicKey, encryptedMessage);
 }
 
 export async function encryptMessage(

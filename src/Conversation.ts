@@ -9,9 +9,12 @@ import {
 } from 'nostr-tools';
 import { getPublicKeyFromLocalstorage } from './keys.js';
 import {
+  decryptMessage,
+  decryptMessageFromLocalstorage,
   encryptMessage,
   encryptMessageFromLocalstorage,
 } from './messages.js';
+import { getTagValue } from './tags.js';
 
 declare global {
   interface Window {
@@ -65,7 +68,7 @@ class Conversation {
       if (configObject.secretKeyMethod) {
         this.secretKeyMethod = configObject.secretKeyMethod;
         if (configObject.secretKeyMethod === 'throwaway') {
-          console.log('works')
+          console.log('works');
           this.createAndSaveThrowawayKey();
         }
       } else {
@@ -78,7 +81,7 @@ class Conversation {
     const key = generatePrivateKey();
     this.publicKey = getPublicKey(key);
     this.secretKey = key;
-    console.log(this.secretKey)
+    console.log(this.secretKey);
   }
 
   private async encryptMessage(
@@ -101,7 +104,30 @@ class Conversation {
         );
       }
       return encryptMessage(receiverPublicKey, this.secretKey, message);
-      
+    }
+    throw new Error('No valid private key Method was selected');
+  }
+
+  private async decryptMessage(
+    senderPublicKey: PublicKey,
+    message: string
+  ): Promise<string> {
+    if (this.secretKeyMethod === 'nip07') {
+      if (!window.nostr.encrypt) {
+        throw new Error('Nip07 Provider does not support encryption');
+      }
+      return window.nostr.decrypt(senderPublicKey, message);
+    }
+    if (this.secretKeyMethod === 'localstorage') {
+      return decryptMessageFromLocalstorage(message, senderPublicKey);
+    }
+    if (this.secretKeyMethod === 'throwaway') {
+      if (!this.secretKey) {
+        throw new Error(
+          'Throwaway key was selected as method, but none was set on class construction'
+        );
+      }
+      return decryptMessage(senderPublicKey, this.secretKey, message);
     }
     throw new Error('No valid private key Method was selected');
   }
@@ -117,7 +143,13 @@ class Conversation {
     return this.singEvent(event);
   }
 
-  async sub(callback: (e: Event<4>) => void) {
+  async sub(
+    eventCallback: (e: Event<4>, decryptedMessage: string) => void,
+    invoiceCallback?: (lightningInvoice: string) => void
+  ) {
+    if (!invoiceCallback && !this.useWebLn) {
+      throw new Error('InvoiceCallback is required when useWebLn is false.');
+    }
     let userPublicKey: string | undefined;
     if (this.secretKeyMethod === 'nip07') {
       userPublicKey = await window.nostr.getPublicKey();
@@ -135,7 +167,22 @@ class Conversation {
         { kinds: [4], authors: [userPublicKey], '#p': [this.agentKey] },
         { kinds: [4], authors: [this.agentKey], '#p': [userPublicKey] },
       ])
-      .on('event', callback);
+      .on('event', async (e) => {
+        const invoice = getTagValue(e, 'invoice', 1);
+        if (invoice) {
+          if (this.useWebLn) {
+            // TO-DO Web LN Handling
+          } else {
+            invoiceCallback!(invoice);
+          }
+        } else {
+          const decryptedMessage = await this.decryptMessage(
+            this.agentKey,
+            e.content
+          );
+          eventCallback(e, decryptedMessage);
+        }
+      });
   }
 
   async singEvent(unsignedEvent: EventTemplate): Promise<Event> {
@@ -164,7 +211,7 @@ class Conversation {
   async sendPrompt(prompt: string) {
     const event = await this.createKind4(prompt);
     const pubs = this.relayPool.publish(this.relays, event);
-    return Promise.all(pubs)
+    return Promise.all(pubs);
   }
 }
 
