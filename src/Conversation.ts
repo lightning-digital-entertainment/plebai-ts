@@ -8,12 +8,19 @@ import {
   getSignature,
 } from 'nostr-tools';
 import { getPublicKeyFromLocalstorage } from './utils/keys';
+import {
+  encryptMessage,
+  encryptMessageFromLocalstorage,
+} from './utils/messages';
 
 declare global {
   interface Window {
     nostr: {
       signEvent: (unsignedEvent: EventTemplate) => Promise<Event>;
       getPublicKey: () => Promise<string>;
+      // async window.nostr.nip04.encrypt
+      encrypt: (pk: PublicKey, message: string) => Promise<string>;
+      decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
     };
   }
 }
@@ -32,9 +39,13 @@ class Conversation {
 
   useWebLn: boolean = false;
 
+  relays: string[];
+
+  private relayPool: SimplePool;
+
   secretKeyMethod: 'nip07' | 'throwaway' | 'localstorage' = 'throwaway';
 
-  secretKey?: string;
+  private secretKey?: string;
 
   publicKey?: string;
 
@@ -42,9 +53,12 @@ class Conversation {
 
   constructor(
     agentKey: EncodedPublicKey | PublicKey,
-    configObject: ConversationConfig,
+    relays: string[],
+    configObject: ConversationConfig
   ) {
     this.agentKey = agentKey;
+    this.relays = relays;
+    this.relayPool = new SimplePool();
     if (configObject) {
       if (configObject.useWebLn) {
         this.useWebLn = true;
@@ -60,14 +74,48 @@ class Conversation {
     }
   }
 
-  createAndSaveThrowawayKey() {
+  private createAndSaveThrowawayKey() {
     const key = generatePrivateKey();
     this.publicKey = getPublicKey(key);
     this.secretKey = key;
   }
 
-  async sub(relays: string[], callback: (e: Event<4>) => void) {
-    const pool = new SimplePool();
+  private async encryptMessage(
+    receiverPublicKey: PublicKey,
+    message: string
+  ): Promise<string> {
+    if (this.secretKeyMethod === 'nip07') {
+      if (!window.nostr.encrypt) {
+        throw new Error('Nip07 Provider does not support encryption');
+      }
+      return window.nostr.encrypt(receiverPublicKey, message);
+    }
+    if (this.secretKeyMethod === 'localstorage') {
+      return encryptMessageFromLocalstorage(message, receiverPublicKey);
+    }
+    if (this.secretKeyMethod === 'throwaway') {
+      if (!this.secretKey) {
+        throw new Error(
+          'Throwaway key was selected as method, but none was set on class construction'
+        );
+      }
+      encryptMessage(receiverPublicKey, this.secretKey, message);
+    }
+    throw new Error('No valid private key Method was selected');
+  }
+
+  async createKind4(message: string) {
+    const encryptedMessage = await this.encryptMessage(this.agentKey, message);
+    const event = {
+      kind: 4,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [['p', this.agentKey]],
+      content: encryptedMessage,
+    };
+    return this.singEvent(event);
+  }
+
+  async sub(callback: (e: Event<4>) => void) {
     let userPublicKey: string | undefined;
     if (this.secretKeyMethod === 'nip07') {
       userPublicKey = await window.nostr.getPublicKey();
@@ -80,8 +128,8 @@ class Conversation {
     if (!userPublicKey) {
       throw new Error('No public key found');
     }
-    pool
-      .sub(relays, [
+    this.relayPool
+      .sub(this.relays, [
         { kinds: [4], authors: [userPublicKey], '#p': [this.agentKey] },
         { kinds: [4], authors: [this.agentKey], '#p': [userPublicKey] },
       ])
@@ -111,10 +159,10 @@ class Conversation {
     throw new Error('No valid private key available');
   }
 
-  // TO-DO
-  // async sendPrompt(prompt: string) {
-  //   const unsignedKind4 = createUnsignedKind4()
-  // }
+  async sendPrompt(prompt: string) {
+    const event = await this.createKind4(prompt);
+    this.relayPool.publish(this.relays, event);
+  }
 }
 
 export default Conversation;
