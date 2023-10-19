@@ -15,26 +15,7 @@ import {
   encryptMessageFromLocalstorage,
 } from './messages.js';
 import { getTagValue } from './tags.js';
-
-declare global {
-  interface Window {
-    nostr: {
-      signEvent: (unsignedEvent: EventTemplate) => Promise<Event>;
-      getPublicKey: () => Promise<string>;
-      encrypt: (pk: PublicKey, message: string) => Promise<string>;
-      decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
-    };
-  }
-}
-
-type EncodedPublicKey = `npub${string}`;
-type PublicKey = string;
-
-type ConversationConfig = {
-  useWebLn: boolean;
-  secretKeyMethod: 'nip07' | 'throwaway' | 'localstorage';
-  providerHost: string;
-};
+import { ConversationConfig, EncodedPublicKey, PublicKey } from './types.js';
 
 class Conversation {
   agentKey: string;
