@@ -8,12 +8,19 @@ declare global {
       encrypt: (pk: PublicKey, message: string) => Promise<string>;
       decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
     };
-    webln: any;
+    webln: {
+      enable: () => Promise<void>;
+      sendPayment: (invoice: string) => Promise<PaymentResponse>;
+    };
   }
 }
 
 export type EncodedPublicKey = `npub${string}`;
 export type PublicKey = string;
+
+type PaymentResponse = {
+  preimage: string;
+};
 
 export type ConversationConfig = {
   useWebLn: boolean;

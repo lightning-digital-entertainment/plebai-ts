@@ -16,6 +16,7 @@ import {
 } from './messages.js';
 import { getTagValue } from './tags.js';
 import { ConversationConfig, EncodedPublicKey, PublicKey } from './types.js';
+import { handleWebLnPayment } from './webLn.js';
 
 class Conversation {
   agentKey: string;
@@ -150,7 +151,11 @@ class Conversation {
         const invoice = getTagValue(e, 'invoice', 1);
         if (invoice) {
           if (this.useWebLn) {
-            // TO-DO Web LN Handling
+            try {
+              handleWebLnPayment(invoice);
+            } catch (paymentErr) {
+              console.error(paymentErr);
+            }
           } else {
             invoiceCallback!(invoice);
           }
