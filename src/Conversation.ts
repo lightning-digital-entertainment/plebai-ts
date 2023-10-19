@@ -68,7 +68,6 @@ class Conversation {
       if (configObject.secretKeyMethod) {
         this.secretKeyMethod = configObject.secretKeyMethod;
         if (configObject.secretKeyMethod === 'throwaway') {
-          console.log('works');
           this.createAndSaveThrowawayKey();
         }
       } else {
@@ -81,7 +80,6 @@ class Conversation {
     const key = generatePrivateKey();
     this.publicKey = getPublicKey(key);
     this.secretKey = key;
-    console.log(this.secretKey);
   }
 
   private async encryptMessage(
