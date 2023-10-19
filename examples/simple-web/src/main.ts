@@ -1,7 +1,9 @@
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { Event } from 'nostr-tools';
 import './style.css';
 import { Conversation } from 'plebai-ts';
 
-function messageCallback(e, m) {
+function messageCallback(e: Event, m: string) {
   const imageSource = m;
   const imageContainer = document.getElementById('imageContainer');
   const image = document.createElement('img');
