@@ -17,9 +17,17 @@ const conv = new Conversation('<Agent PublicKey>', ['<List of Relays>'], {
 });
 
 // create a subscription to receive all messages that are sent between you and the agent
-conv.sub((e) => {
-  console.log(e);
-});
+// Expects two callbacks: one for incoming messages, one for incoming payment requests
+// Invoice callback can be omitted when using webLN
+conv.sub(
+  (event, message) => {
+    console.log(event);
+    console.log(message);
+  },
+  (invoice) => {
+    console.log(invoice);
+  }
+);
 
 // send a prompt to the agent
 conv.sendPrompt('Write a text about artificial intelligence');
@@ -29,7 +37,7 @@ conv.sendPrompt('Write a text about artificial intelligence');
 
 - useWebLN: Boolean wether WebLN should be used automatically to pay invoices. (Defaults to false)
 - secretKeyMethod (Defaults to throwaway)
-  - nip07: Attempt to call a nip07 provider. 
+  - nip07: Attempt to call a nip07 provider.
   - throwaway: create a new key for the conversation and save it in memory
   - localstorage: look for a private key in localstorage, if there is none create it
 - providerHost: Hostname of plebai provider. (Defaults to https://plebai.com)
@@ -41,3 +49,7 @@ type ConversationConfig = {
   providerHost: string;
 };
 ```
+
+### Examples
+
+You can find examples of how to use plebai-ts in different environments in [examples](/examples/)
