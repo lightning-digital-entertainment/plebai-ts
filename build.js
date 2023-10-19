@@ -36,7 +36,7 @@ esbuild
 esbuild
   .build({
     ...common,
-    outfile: 'lib/nostr.bundle.js',
+    outfile: 'lib/plebai.bundle.js',
     format: 'iife',
     globalName: 'plebai',
     define: {
