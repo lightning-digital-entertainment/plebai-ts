@@ -69,10 +69,10 @@ class Conversation {
     message: string
   ): Promise<string> {
     if (this.secretKeyMethod === 'nip07') {
-      if (!window.nostr.encrypt) {
+      if (!window.nostr.nip04.encrypt) {
         throw new Error('Nip07 Provider does not support encryption');
       }
-      return window.nostr.encrypt(receiverPublicKey, message);
+      return window.nostr.nip04.encrypt(receiverPublicKey, message);
     }
     if (this.secretKeyMethod === 'localstorage') {
       return encryptMessageFromLocalstorage(message, receiverPublicKey);
@@ -93,10 +93,10 @@ class Conversation {
     message: string
   ): Promise<string> {
     if (this.secretKeyMethod === 'nip07') {
-      if (!window.nostr.encrypt) {
+      if (!window.nostr.nip04.decrypt) {
         throw new Error('Nip07 Provider does not support encryption');
       }
-      return window.nostr.decrypt(senderPublicKey, message);
+      return window.nostr.nip04.decrypt(senderPublicKey, message);
     }
     if (this.secretKeyMethod === 'localstorage') {
       return decryptMessageFromLocalstorage(message, senderPublicKey);
@@ -131,13 +131,15 @@ class Conversation {
       throw new Error('InvoiceCallback is required when useWebLn is false.');
     }
     let userPublicKey: string | undefined;
-    if (this.secretKeyMethod === 'nip07') {
-      userPublicKey = await window.nostr.getPublicKey();
-    }
-    if (this.secretKeyMethod === 'localstorage') {
-      userPublicKey = getPublicKeyFromLocalstorage();
-    } else {
-      userPublicKey = this.publicKey;
+    switch (this.secretKeyMethod) {
+      case 'nip07':
+        userPublicKey = await window.nostr.getPublicKey();
+        break;
+      case 'localstorage':
+        userPublicKey = getPublicKeyFromLocalstorage();
+        break;
+      default:
+        userPublicKey = this.publicKey;
     }
     if (!userPublicKey) {
       throw new Error('No public key found');
@@ -154,7 +156,12 @@ class Conversation {
             try {
               handleWebLnPayment(invoice);
             } catch (paymentErr) {
-              console.error(paymentErr);
+              if (!invoiceCallback) {
+                throw new Error(
+                  'WebLN failed and there was no invoice callback to fallback to.'
+                );
+              }
+              invoiceCallback(invoice);
             }
           } else {
             invoiceCallback!(invoice);
