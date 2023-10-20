@@ -5,8 +5,10 @@ declare global {
     nostr: {
       signEvent: (unsignedEvent: EventTemplate) => Promise<Event>;
       getPublicKey: () => Promise<string>;
-      encrypt: (pk: PublicKey, message: string) => Promise<string>;
-      decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
+      nip04: {
+        encrypt: (pk: PublicKey, message: string) => Promise<string>;
+        decrypt: (pk: PublicKey, encryptedMessage: string) => Promise<string>;
+      };
     };
     webln: {
       enable: () => Promise<void>;
