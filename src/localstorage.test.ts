@@ -1,12 +1,20 @@
-import { describe, test, expect, afterEach } from '@jest/globals';
-import { signFromLocalstorage } from './messages';
+import {
+  describe,
+  test,
+  expect,
+  afterEach
+} from '@jest/globals';
 import { EventTemplate, generatePrivateKey } from 'nostr-tools';
-import { getPublicKeyFromLocalstorage } from './localstorage';
+import {
+  getPublicKeyFromLocalstorage,
+  signFromLocalstorage,
+} from './localstorage';
 
 class LocalStorageMock {
   store: {
     [key: string]: string;
   };
+
   constructor() {
     this.store = {};
   }
@@ -28,7 +36,7 @@ class LocalStorageMock {
   }
 }
 
-//@ts-ignore
+// @ts-ignore
 global.localStorage = new LocalStorageMock();
 
 describe('signing a message from localstorage', () => {
@@ -55,7 +63,7 @@ describe('signing a message from localstorage', () => {
       tags: [],
     };
     expect(() => {
-      const signedEvent = signFromLocalstorage(unsignedEvent);
+      signFromLocalstorage(unsignedEvent);
     }).toThrow();
   });
 });
@@ -71,7 +79,7 @@ describe('getting public key from local storage', () => {
   });
   test('assume no private key is found', () => {
     expect(() => {
-      const publicKey = getPublicKeyFromLocalstorage();
+      getPublicKeyFromLocalstorage();
     }).toThrow();
   });
 });

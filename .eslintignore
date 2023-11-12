@@ -1,3 +1,4 @@
 .eslintrc.js
 lib
 examples
+jest.config.js

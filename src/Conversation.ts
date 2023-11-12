@@ -27,8 +27,7 @@ class Conversation {
 
   private relayPool: SimplePool;
 
-  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' =
-    'throwaway';
+  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' = 'throwaway';
 
   private secretKey?: string;
 
@@ -51,6 +50,7 @@ class Conversation {
         if (configObject.secretKeyMethod === 'throwaway') {
           this.createAndSaveThrowawayKey();
         } else if (configObject.secretKeyMethod === 'localstorage') {
+          // TO-DO
         }
       } else {
         this.createAndSaveThrowawayKey();
@@ -195,7 +195,8 @@ class Conversation {
       event.id = getEventHash(event);
       event.sig = getSignature(event, this.secretKey);
       return event;
-    } else if (this.secretKeyMethod === 'localstorage') {
+    }
+    if (this.secretKeyMethod === 'localstorage') {
       return signFromLocalstorage(unsignedEvent);
     }
     throw new Error('No valid private key available');
