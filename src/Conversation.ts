@@ -7,38 +7,37 @@ import {
   getPublicKey,
   getSignature,
 } from 'nostr-tools';
-import { getPublicKeyFromLocalstorage } from './keys.js';
-import {
-  decryptMessage,
-  decryptMessageFromLocalstorage,
-  encryptMessage,
-  encryptMessageFromLocalstorage,
-} from './messages.js';
+import { decryptMessage, encryptMessage } from './messages.js';
 import { getTagValue } from './tags.js';
 import { ConversationConfig, EncodedPublicKey, PublicKey } from './types.js';
 import { handleWebLnPayment } from './webLn.js';
+import {
+  decryptMessageFromLocalstorage,
+  encryptMessageFromLocalstorage,
+  getPublicKeyFromLocalstorage,
+  signFromLocalstorage,
+} from './localstorage.js';
 
 class Conversation {
-  agentKey: string;
+  private agentKey: string;
 
-  useWebLn: boolean = false;
+  private useWebLn?: boolean = false;
 
-  relays: string[];
+  private relays: string[];
 
   private relayPool: SimplePool;
 
-  secretKeyMethod: 'nip07' | 'throwaway' | 'localstorage' = 'throwaway';
+  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' =
+    'throwaway';
 
   private secretKey?: string;
 
-  publicKey?: string;
-
-  providerHost: string = 'https://plebai.com';
+  private publicKey?: string;
 
   constructor(
     agentKey: EncodedPublicKey | PublicKey,
     relays: string[],
-    configObject: ConversationConfig
+    configObject: ConversationConfig,
   ) {
     this.agentKey = agentKey;
     this.relays = relays;
@@ -51,6 +50,7 @@ class Conversation {
         this.secretKeyMethod = configObject.secretKeyMethod;
         if (configObject.secretKeyMethod === 'throwaway') {
           this.createAndSaveThrowawayKey();
+        } else if (configObject.secretKeyMethod === 'localstorage') {
         }
       } else {
         this.createAndSaveThrowawayKey();
@@ -66,7 +66,7 @@ class Conversation {
 
   private async encryptMessage(
     receiverPublicKey: PublicKey,
-    message: string
+    message: string,
   ): Promise<string> {
     if (this.secretKeyMethod === 'nip07') {
       if (!window.nostr.nip04.encrypt) {
@@ -80,7 +80,7 @@ class Conversation {
     if (this.secretKeyMethod === 'throwaway') {
       if (!this.secretKey) {
         throw new Error(
-          'Throwaway key was selected as method, but none was set on class construction'
+          'Throwaway key was selected as method, but none was set on class construction',
         );
       }
       return encryptMessage(receiverPublicKey, this.secretKey, message);
@@ -90,7 +90,7 @@ class Conversation {
 
   private async decryptMessage(
     senderPublicKey: PublicKey,
-    message: string
+    message: string,
   ): Promise<string> {
     if (this.secretKeyMethod === 'nip07') {
       if (!window.nostr.nip04.decrypt) {
@@ -104,7 +104,7 @@ class Conversation {
     if (this.secretKeyMethod === 'throwaway') {
       if (!this.secretKey) {
         throw new Error(
-          'Throwaway key was selected as method, but none was set on class construction'
+          'Throwaway key was selected as method, but none was set on class construction',
         );
       }
       return decryptMessage(senderPublicKey, this.secretKey, message);
@@ -125,7 +125,7 @@ class Conversation {
 
   async sub(
     eventCallback: (e: Event<4>, decryptedMessage: string) => void,
-    invoiceCallback?: (lightningInvoice: string) => void
+    invoiceCallback?: (lightningInvoice: string) => void,
   ) {
     if (!invoiceCallback && !this.useWebLn) {
       throw new Error('InvoiceCallback is required when useWebLn is false.');
@@ -158,7 +158,7 @@ class Conversation {
             } catch (paymentErr) {
               if (!invoiceCallback) {
                 throw new Error(
-                  'WebLN failed and there was no invoice callback to fallback to.'
+                  'WebLN failed and there was no invoice callback to fallback to.',
                 );
               }
               invoiceCallback(invoice);
@@ -169,7 +169,7 @@ class Conversation {
         } else {
           const decryptedMessage = await this.decryptMessage(
             this.agentKey,
-            e.content
+            e.content,
           );
           eventCallback(e, decryptedMessage);
         }
@@ -195,6 +195,8 @@ class Conversation {
       event.id = getEventHash(event);
       event.sig = getSignature(event, this.secretKey);
       return event;
+    } else if (this.secretKeyMethod === 'localstorage') {
+      return signFromLocalstorage(unsignedEvent);
     }
     throw new Error('No valid private key available');
   }

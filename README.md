@@ -1,4 +1,4 @@
-# plebai-ts
+# PlebAI-SDK
 
 A TS/JS wrapper for communicating with plebAI agents through nostr.
 
@@ -26,7 +26,7 @@ conv.sub(
   },
   (invoice) => {
     console.log(invoice);
-  }
+  },
 );
 
 // send a prompt to the agent
