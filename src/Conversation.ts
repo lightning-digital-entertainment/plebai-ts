@@ -155,7 +155,6 @@ class Conversation {
       ])
       .on('event', async (e) => {
         if (e.kind === 7000 && listeners.onProcessing) {
-          console.log('Got a new message');
           listeners.onProcessing();
         } else if (e.kind === 4) {
           const invoice = getTagValue(e, 'invoice', 1);
@@ -217,7 +216,7 @@ class Conversation {
   async sendPrompt(prompt: string) {
     const event = await this.createKind4(prompt);
     const pubs = this.relayPool.publish(this.relays, event);
-    return Promise.all(pubs);
+    return pubs;
   }
 }
 
