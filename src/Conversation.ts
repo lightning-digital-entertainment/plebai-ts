@@ -18,6 +18,12 @@ import {
   signFromLocalstorage,
 } from './localstorage.js';
 
+type Listeners = {
+  onMessage: (e: Event<4>, decryptedMessage: string) => void;
+  onInvoice?: (lightningInvoice: string) => void;
+  onProcessing?: () => void;
+};
+
 class Conversation {
   private agentKey: string;
 
@@ -27,7 +33,8 @@ class Conversation {
 
   private relayPool: SimplePool;
 
-  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' = 'throwaway';
+  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' =
+    'throwaway';
 
   private secretKey?: string;
 
@@ -123,11 +130,8 @@ class Conversation {
     return this.singEvent(event);
   }
 
-  async sub(
-    eventCallback: (e: Event<4>, decryptedMessage: string) => void,
-    invoiceCallback?: (lightningInvoice: string) => void,
-  ) {
-    if (!invoiceCallback && !this.useWebLn) {
+  async sub(listeners: Listeners) {
+    if (!listeners.onInvoice && !this.useWebLn) {
       throw new Error('InvoiceCallback is required when useWebLn is false.');
     }
     let userPublicKey: string | undefined;
@@ -146,32 +150,39 @@ class Conversation {
     }
     this.relayPool
       .sub(this.relays, [
-        { kinds: [4], authors: [userPublicKey], '#p': [this.agentKey] },
-        { kinds: [4], authors: [this.agentKey], '#p': [userPublicKey] },
+        { kinds: [4, 7000], authors: [userPublicKey], '#p': [this.agentKey] },
+        { kinds: [4, 7000], authors: [this.agentKey], '#p': [userPublicKey] },
       ])
       .on('event', async (e) => {
-        const invoice = getTagValue(e, 'invoice', 1);
-        if (invoice) {
-          if (this.useWebLn) {
-            try {
-              handleWebLnPayment(invoice);
-            } catch (paymentErr) {
-              if (!invoiceCallback) {
-                throw new Error(
-                  'WebLN failed and there was no invoice callback to fallback to.',
-                );
+        if (e.kind === 7000 && listeners.onProcessing) {
+          listeners.onProcessing();
+        } else if (e.kind === 4) {
+          const invoice = getTagValue(e, 'invoice', 1);
+          if (invoice) {
+            if (this.useWebLn) {
+              try {
+                handleWebLnPayment(invoice);
+              } catch (paymentErr) {
+                if (!listeners.onInvoice) {
+                  throw new Error(
+                    'WebLN failed and there was no invoice callback to fallback to.',
+                  );
+                }
+                listeners.onInvoice(invoice);
               }
-              invoiceCallback(invoice);
+            } else {
+              // eslint-disable-next-line no-lonely-if
+              if (listeners.onInvoice) {
+                listeners.onInvoice(invoice);
+              }
             }
           } else {
-            invoiceCallback!(invoice);
+            const decryptedMessage = await this.decryptMessage(
+              this.agentKey,
+              e.content,
+            );
+            listeners.onMessage(e as Event<4>, decryptedMessage);
           }
-        } else {
-          const decryptedMessage = await this.decryptMessage(
-            this.agentKey,
-            e.content,
-          );
-          eventCallback(e, decryptedMessage);
         }
       });
   }
@@ -205,7 +216,7 @@ class Conversation {
   async sendPrompt(prompt: string) {
     const event = await this.createKind4(prompt);
     const pubs = this.relayPool.publish(this.relays, event);
-    return Promise.all(pubs);
+    return pubs;
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "plebai-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A wrapper for communicating with plebai agents",
   "module": "./lib/esm/index.js",
   "main": "./lib/cjs/index.js",
