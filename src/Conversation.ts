@@ -33,8 +33,8 @@ class Conversation {
 
   private relayPool: SimplePool;
 
-  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' =
-    'throwaway';
+  // prettier-ignore
+  private secretKeyMethod?: 'nip07' | 'throwaway' | 'localstorage' = 'throwaway';
 
   private secretKey?: string;
 
